@@ -8,4 +8,4 @@
 
 ## Frontend
   * React/React Native
-  * PxiJS -> Para animaciones
+  * PixiJS -> Para animaciones
