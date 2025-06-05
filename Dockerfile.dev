@@ -1,0 +1,17 @@
+FROM golang:1.23-alpine
+
+RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+
+RUN go mod download
+
+# Como ya me monto un volumen con los archivos no hace falta
+# Copiar todo el código fuente
+#COPY . .
+
+EXPOSE 8080
+
+CMD ["sh", "-c", "go build -o main cmd/api/main.go && ./main"]
