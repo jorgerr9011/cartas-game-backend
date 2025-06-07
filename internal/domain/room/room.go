@@ -3,6 +3,8 @@ package room
 import (
 	"errors"
 	"time"
+
+	"github.com/jorgerr9011/cartas-game-backend/internal/domain/game"
 )
 
 type RoomID string
@@ -15,6 +17,7 @@ type Room struct {
 	CreatedAt time.Time
 	Started   bool
 	TurnIndex int
+	Game      game.Game
 }
 
 func NewRoom(id RoomID, name string) *Room {
@@ -26,6 +29,10 @@ func NewRoom(id RoomID, name string) *Room {
 		Started:   false,
 		TurnIndex: -1,
 	}
+}
+
+func (r *Room) AssignGame(g game.Game) {
+	r.Game = g
 }
 
 func (r *Room) AddPlayer(playerID PlayerID) error {
