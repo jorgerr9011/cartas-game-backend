@@ -30,7 +30,7 @@ func (r *PlayerRepo) FindByID(id player.PlayerID) (*player.Player, error) {
 	if rm, ok := r.store[id]; ok {
 		return rm, nil
 	}
-	return nil, errors.New("room not found")
+	return nil, errors.New("player not found")
 }
 
 func (r *PlayerRepo) List() ([]*player.Player, error) {
