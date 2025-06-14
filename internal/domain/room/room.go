@@ -5,29 +5,30 @@ import (
 	"time"
 
 	"github.com/jorgerr9011/cartas-game-backend/internal/domain/game"
+	"github.com/jorgerr9011/cartas-game-backend/internal/domain/player"
 )
 
 type RoomID string
-type PlayerID string
 
 type Room struct {
 	ID        RoomID
 	Name      string
-	Players   []PlayerID
+	Players   []player.PlayerID
 	CreatedAt time.Time
 	Started   bool
 	TurnIndex int
 	Game      game.Game
 }
 
-func NewRoom(id RoomID, name string) *Room {
+func NewRoom(id RoomID, name string, game game.Game) *Room {
 	return &Room{
 		ID:        id,
 		Name:      name,
-		Players:   []PlayerID{},
+		Players:   []player.PlayerID{},
 		CreatedAt: time.Now(),
 		Started:   false,
 		TurnIndex: -1,
+		Game:      game,
 	}
 }
 
@@ -35,7 +36,7 @@ func (r *Room) AssignGame(g game.Game) {
 	r.Game = g
 }
 
-func (r *Room) AddPlayer(playerID PlayerID) error {
+func (r *Room) AddPlayer(playerID player.PlayerID) error {
 	if r.Started {
 		return errors.New("game already started")
 	}
@@ -67,7 +68,7 @@ func (r *Room) NextTurn() {
 	r.TurnIndex = (r.TurnIndex + 1) % len(r.Players)
 }
 
-func (r *Room) CurrentPlayer() PlayerID {
+func (r *Room) CurrentPlayer() player.PlayerID {
 	if r.TurnIndex == -1 || len(r.Players) == 0 {
 		return ""
 	}

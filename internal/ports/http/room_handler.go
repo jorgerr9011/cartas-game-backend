@@ -5,15 +5,20 @@ import (
 
 	"github.com/gin-gonic/gin"
 	roomapp "github.com/jorgerr9011/cartas-game-backend/internal/app/room"
+
+	"github.com/jorgerr9011/cartas-game-backend/internal/domain/game"
+	"github.com/jorgerr9011/cartas-game-backend/internal/domain/player"
 	"github.com/jorgerr9011/cartas-game-backend/internal/domain/room"
 )
 
 type RoomHandler struct {
-	usecase roomapp.UseCase
+	roomusecase roomapp.UseCase
 }
 
 func NewRoomHandler(uc roomapp.UseCase) *RoomHandler {
-	return &RoomHandler{usecase: uc}
+	return &RoomHandler{
+		roomusecase: uc,
+	}
 }
 
 func (h *RoomHandler) Register(rg *gin.RouterGroup) {
@@ -25,7 +30,9 @@ func (h *RoomHandler) Register(rg *gin.RouterGroup) {
 }
 
 type createRoomReq struct {
-	Name string `json:"name" binding:"required"`
+	Id       room.RoomID `json:"id" binding:"required"`
+	Name     string      `json:"name" binding:"required"`
+	GameName string      `json:"game_name" binding:"required"`
 }
 
 func (h *RoomHandler) createRoom(c *gin.Context) {
@@ -34,7 +41,11 @@ func (h *RoomHandler) createRoom(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	room, err := h.usecase.CreateRoom(req.Name)
+
+	gamefactory := game.NewGameFactory()
+	newGame := gamefactory.NewGame(req.GameName)
+
+	room, err := h.roomusecase.CreateRoom(req.Id, req.Name, newGame)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -44,12 +55,12 @@ func (h *RoomHandler) createRoom(c *gin.Context) {
 
 func (h *RoomHandler) joinRoom(c *gin.Context) {
 	id := room.RoomID(c.Param("id"))
-	playerID := room.PlayerID(c.Query("playerID"))
+	playerID := player.PlayerID(c.Query("playerID"))
 	if playerID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "playerID is required"})
 		return
 	}
-	err := h.usecase.JoinRoom(id, playerID)
+	err := h.roomusecase.JoinRoom(id, playerID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -59,7 +70,7 @@ func (h *RoomHandler) joinRoom(c *gin.Context) {
 
 func (h *RoomHandler) startGame(c *gin.Context) {
 	id := room.RoomID(c.Param("id"))
-	err := h.usecase.StartGame(id)
+	err := h.roomusecase.StartGame(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -69,7 +80,7 @@ func (h *RoomHandler) startGame(c *gin.Context) {
 
 func (h *RoomHandler) nextTurn(c *gin.Context) {
 	id := room.RoomID(c.Param("id"))
-	err := h.usecase.NextTurn(id)
+	err := h.roomusecase.NextTurn(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -79,7 +90,7 @@ func (h *RoomHandler) nextTurn(c *gin.Context) {
 
 func (h *RoomHandler) currentPlayer(c *gin.Context) {
 	id := room.RoomID(c.Param("id"))
-	playerID, err := h.usecase.CurrentPlayer(id)
+	playerID, err := h.roomusecase.CurrentPlayer(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
