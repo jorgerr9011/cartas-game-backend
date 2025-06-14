@@ -7,7 +7,7 @@ import (
 )
 
 type CuloCardGame struct {
-	ID          GameID
+	// ID          GameID
 	Players     []player.PlayerID
 	TurnIndex   int
 	Started     bool
@@ -17,14 +17,22 @@ type CuloCardGame struct {
 	PlayerHands map[player.PlayerID][]string
 }
 
-func NewCuloCardGame(id GameID) *CuloCardGame {
+type GameState struct {
+	Turn            int
+	CurrentPlayerID player.PlayerID
+	Players         []player.PlayerID
+	Started         bool
+	Finished        bool
+}
+
+func NewCuloCardGame() *CuloCardGame {
 	return &CuloCardGame{
-		ID:          id,
+		// ID:          id,
 		PlayerHands: make(map[player.PlayerID][]string),
 	}
 }
 
-func (g *CuloCardGame) GetID() GameID                 { return g.ID }
+// func (g *CuloCardGame) GetID() GameID                 { return g.ID }
 func (g *CuloCardGame) GetName() string               { return "CuloCardGame" }
 func (g *CuloCardGame) GetPlayers() []player.PlayerID { return g.Players }
 func (g *CuloCardGame) GetCurrentTurnPlayer() player.PlayerID {
@@ -54,13 +62,13 @@ func (g *CuloCardGame) Start(players []player.PlayerID) error {
 	return nil
 }
 
-func (g *CuloCardGame) Play(playerID player.PlayerID, data map[string]interface{}) error {
+func (g *CuloCardGame) Play(playerID player.PlayerID, data map[string]interface{}) (GameState, error) {
 	if g.GetCurrentTurnPlayer() != playerID {
-		return errors.New("not your turn")
+		return g.GetState(), errors.New("not your turn")
 	}
 	card, ok := data["card"].(string)
 	if !ok {
-		return errors.New("invalid card")
+		return g.GetState(), errors.New("invalid card")
 	}
 	// Comprobar que el jugador tiene la carta
 	hand := g.PlayerHands[playerID]
@@ -72,7 +80,7 @@ func (g *CuloCardGame) Play(playerID player.PlayerID, data map[string]interface{
 		}
 	}
 	if index == -1 {
-		return errors.New("card not in hand")
+		return g.GetState(), errors.New("card not in hand")
 	}
 	// Quitarla de la mano y jugarla
 	g.PlayerHands[playerID] = append(hand[:index], hand[index+1:]...)
@@ -85,15 +93,15 @@ func (g *CuloCardGame) Play(playerID player.PlayerID, data map[string]interface{
 	if len(g.Deck) == 0 {
 		g.Finished = true
 	}
-	return nil
+	return g.GetState(), nil
 }
 
-func (g *CuloCardGame) GetState() map[string]interface{} {
-	return map[string]interface{}{
-		"players":    g.Players,
-		"turnPlayer": g.GetCurrentTurnPlayer(),
-		"played":     g.Played,
-		"started":    g.Started,
-		"finished":   g.Finished,
+func (g *CuloCardGame) GetState() GameState {
+	return GameState{
+		Turn:            g.TurnIndex,
+		CurrentPlayerID: g.GetCurrentTurnPlayer(),
+		Players:         g.Players,
+		Started:         g.Started,
+		Finished:        g.Finished,
 	}
 }

@@ -1,12 +1,17 @@
-// internal/domain/game/factory.go
 package game
 
-func NewGame(gameType, id GameID) Game {
+type GameFactory struct{}
+
+func NewGameFactory() *GameFactory {
+	return &GameFactory{}
+}
+
+func (gamefactory *GameFactory) NewGame(gameType string) Game {
 	switch gameType {
 	case "culo":
-		return NewCuloCardGame(id)
-	// case "truco": return NewTrucoGame(id)
+		return NewCuloCardGame()
+	// case "truco": return NewTrucoGame()
 	default:
-		return nil
+		return NewCuloCardGame()
 	}
 }

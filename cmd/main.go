@@ -26,13 +26,13 @@ func main() {
 	memRepo := memory.NewRoomRepo()
 	playerRepo := memory.NewPlayerRepo()
 
-	createRoomUseCase := roomapp.NewUseCase(memRepo)
-	createPlayerUseCase := playerapp.NewUseCase(playerRepo)
+	roomUseCase := roomapp.NewUseCase(memRepo)
+	playerUseCase := playerapp.NewUseCase(playerRepo)
 
-	roomHandler := handlerHTTP.NewRoomHandler(createRoomUseCase)
-	playerHandler := handlerHTTP.NewPlayerHandler(createPlayerUseCase)
+	roomHandler := handlerHTTP.NewRoomHandler(roomUseCase)
+	playerHandler := handlerHTTP.NewPlayerHandler(playerUseCase)
 
-	roommanager := websocket.NewRoomManager()
+	roommanager := websocket.NewRoomManager(roomUseCase, playerUseCase)
 	go roommanager.Run()
 
 	api := r.Group("/api")
