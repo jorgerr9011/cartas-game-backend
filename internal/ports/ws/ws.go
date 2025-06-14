@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	ws "github.com/jorgerr9011/cartas-game-backend/internal/adapters/websocket"
+	"github.com/jorgerr9011/cartas-game-backend/internal/domain/room"
 )
 
 // Revisar esto para producción
@@ -18,7 +19,8 @@ var upgrader = websocket.Upgrader{
 
 func ServeWs(rm *ws.RoomManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		roomID := c.Param("roomID")
+		roomID := room.RoomID(c.Param("roomID"))
+		gameName := c.Query("game_name")
 
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
@@ -27,10 +29,11 @@ func ServeWs(rm *ws.RoomManager) gin.HandlerFunc {
 		defer conn.Close()
 
 		client := &ws.Client{
-			ID:     uuid.NewString(),
-			Conn:   conn,
-			Send:   make(chan []byte, 256),
-			RoomID: roomID,
+			ID:       uuid.NewString(),
+			Conn:     conn,
+			Send:     make(chan []byte, 256),
+			RoomID:   roomID,
+			GameName: gameName,
 		}
 
 		rm.Register <- client
@@ -38,6 +41,6 @@ func ServeWs(rm *ws.RoomManager) gin.HandlerFunc {
 		go ws.WritePump(client)
 
 		// Se ejecuta en la goroutine actual para que cuando termine ReadPump también termine la goroutine
-		go ws.ReadPump(rm, client)
+		ws.ReadPump(rm, client)
 	}
 }

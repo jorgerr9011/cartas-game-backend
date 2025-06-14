@@ -15,6 +15,9 @@ func ReadPump(rm *RoomManager, client *Client) {
 			break
 		}
 
+		log.Printf("SALA DE JUEGO: %s", client.RoomID)
+		log.Printf("OBJECT SALA: %#v", rm.DomainRooms[client.RoomID])
+
 		rm.Broadcast <- Message{
 			RoomID:  client.RoomID,
 			Content: message,
