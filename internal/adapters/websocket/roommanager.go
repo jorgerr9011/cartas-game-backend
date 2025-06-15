@@ -131,3 +131,9 @@ func (r *RoomManager) initializeGame(client *Client) {
 
 	r.Rooms[client.RoomID][client] = true
 }
+
+func (r *RoomManager) empezarJuego(cliente *Client) {
+	room := r.DomainRooms[cliente.RoomID]
+
+	room.Game.Start(room.Players)
+}
