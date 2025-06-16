@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"math/rand/v2"
 
 	"github.com/jorgerr9011/cartas-game-backend/internal/domain/card"
@@ -91,6 +92,14 @@ func (g *CuloCardGame) Start(playerIDs []player.PlayerID) error {
 func (g *CuloCardGame) Play(playerID player.PlayerID, data map[string]interface{}) (GameState, error) {
 	//
 	return g.GetState(), nil
+}
+
+func (g *CuloCardGame) GetPlayerHand(playerID player.PlayerID) (*PlayerState, error) {
+	hand, ok := g.PlayerHands[playerID]
+	if !ok {
+		return nil, fmt.Errorf("no se encontró la mano del jugador %s", playerID)
+	}
+	return hand, nil
 }
 
 func (g *CuloCardGame) GetState() GameState {

@@ -8,6 +8,7 @@ type GameID string
 type Game interface {
 	Start(playerIDs []player.PlayerID) error
 	Play(playerID player.PlayerID, data map[string]interface{}) (GameState, error)
+	GetPlayerHand(playerID player.PlayerID) (*PlayerState, error)
 	GetState() GameState
 	IsFinished() bool
 }
