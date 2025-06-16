@@ -11,4 +11,5 @@ type Client struct {
 	Send     chan []byte
 	RoomID   room.RoomID
 	GameName string
+	Username string
 }

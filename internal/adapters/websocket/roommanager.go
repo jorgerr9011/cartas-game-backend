@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"encoding/json"
 	"log"
 	"sync"
 
@@ -26,8 +27,9 @@ type RoomManager struct {
 }
 
 type Message struct {
-	RoomID  room.RoomID
-	Content []byte
+	Type    string          `json:"type"`
+	RoomID  room.RoomID     `json:"roomid"`
+	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
 func NewRoomManager(roomUC roomapp.UseCase, playerUC playerapp.UseCase) *RoomManager {
@@ -49,9 +51,7 @@ func (r *RoomManager) Run() {
 		select {
 		case client := <-r.Register:
 			r.mu.Lock()
-
-			r.initializeGame(client)
-
+			r.initializeRoom(client)
 			r.mu.Unlock()
 
 		case client := <-r.Unregister:
@@ -65,12 +65,15 @@ func (r *RoomManager) Run() {
 		case message := <-r.Broadcast:
 			r.mu.Lock()
 
-			log.Printf("Mensaje desde el RoomManager: %v", message.Content)
+			jsonMsg, err := json.Marshal(message)
+			if err != nil {
+				log.Printf("Error deserializando mensaje: %v", err)
+			}
 
 			clients := r.Rooms[message.RoomID]
 			for c := range clients {
 				select {
-				case c.Send <- message.Content:
+				case c.Send <- jsonMsg:
 				default:
 					close(c.Send)
 					delete(clients, c)
@@ -85,55 +88,60 @@ func (r *RoomManager) Run() {
 	}
 }
 
-func (r *RoomManager) initializeGame(client *Client) {
+func (r *RoomManager) initializeRoom(client *Client) {
 	var player *player.Player
 	var room *room.Room
 	var err error
 
-	// Aqui se busca si existe la sala
-	if r.Rooms[client.RoomID] == nil {
-		r.Rooms[client.RoomID] = make(map[*Client]bool)
-
-		player, err = r.playerUseCase.CreatePlayer("nombreCliente")
-		if err != nil {
-			log.Printf("Error creando cliente: %v", err)
-			return
-		}
-		log.Printf("Jugador creado: %#v", player)
-	}
-
-	if r.DomainRooms[client.RoomID] == nil {
-		gamefactory := game.NewGameFactory()
-		newGame := gamefactory.NewGame(client.GameName)
-
-		room, err = r.roomUseCase.CreateRoom(client.RoomID, string(client.RoomID), newGame)
-		if err != nil {
-			log.Printf("Error creando sala: %v", err)
-			return
-		}
-		log.Printf("Sala creada: %#v", room)
-		log.Printf("Juego añadido: %#v", room.Game)
-
-		r.DomainRooms[room.ID] = room
-	} else {
-		room = r.DomainRooms[client.RoomID]
-		log.Printf("Sala ya existente: %#v", room)
-	}
+	r.handleClientInRoom(client)
+	player = r.handleCreatePlayer(client)
+	room = r.handleCreateRoomGame(client)
 
 	if room == nil || player == nil {
 		log.Printf("ERROR: room o player es nil antes de JoinRoom")
 		return
 	}
 
-	if err := r.roomUseCase.JoinRoom(room.ID, player.ID); err != nil {
+	if err = r.roomUseCase.JoinRoom(room.ID, player.ID); err != nil {
 		log.Printf("Error uniendo jugador %v a la sala %v : %v", room.Name, player.Name, err)
 	}
 
-	r.Rooms[client.RoomID][client] = true
+	log.Printf("Sala al final del registro: %#v", room)
 }
 
-func (r *RoomManager) empezarJuego(cliente *Client) {
-	room := r.DomainRooms[cliente.RoomID]
+func (r *RoomManager) handleCreatePlayer(client *Client) *player.Player {
+	player, err := r.playerUseCase.CreatePlayer(client.Username)
+	if err != nil {
+		log.Printf("Error creando cliente: %v", err)
+		return nil
+	}
+	log.Printf("Jugador creado: %#v", player)
+	return player
+}
 
-	room.Game.Start(room.Players)
+func (r *RoomManager) handleCreateRoomGame(client *Client) *room.Room {
+	if r.DomainRooms[client.RoomID] == nil {
+		gamefactory := game.NewGameFactory()
+		newGame := gamefactory.NewGame(client.GameName)
+
+		room, err := r.roomUseCase.CreateRoom(client.RoomID, string(client.RoomID), newGame)
+		if err != nil {
+			log.Printf("Error creando sala: %v", err)
+			return nil
+		}
+		log.Printf("Sala creada: %#v", room)
+		log.Printf("Juego añadido: %#v", room.Game)
+
+		r.DomainRooms[room.ID] = room
+	}
+	room := r.DomainRooms[client.RoomID]
+	log.Printf("Sala ya existente: %#v", room)
+	return room
+}
+
+func (r *RoomManager) handleClientInRoom(client *Client) {
+	if r.Rooms[client.RoomID] == nil {
+		r.Rooms[client.RoomID] = make(map[*Client]bool)
+	}
+	r.Rooms[client.RoomID][client] = true
 }
