@@ -21,6 +21,7 @@ func ServeWs(rm *ws.RoomManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		roomID := room.RoomID(c.Param("roomID"))
 		gameName := c.Query("game_name")
+		clientName := c.Query("username")
 
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
@@ -34,6 +35,7 @@ func ServeWs(rm *ws.RoomManager) gin.HandlerFunc {
 			Send:     make(chan []byte, 256),
 			RoomID:   roomID,
 			GameName: gameName,
+			Username: clientName,
 		}
 
 		rm.Register <- client

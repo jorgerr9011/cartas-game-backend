@@ -1,6 +1,8 @@
 package ws
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -13,7 +15,14 @@ import (
 	wsadapter "github.com/jorgerr9011/cartas-game-backend/internal/adapters/websocket"
 	playerapp "github.com/jorgerr9011/cartas-game-backend/internal/app/player"
 	roomapp "github.com/jorgerr9011/cartas-game-backend/internal/app/room"
+	"github.com/jorgerr9011/cartas-game-backend/internal/domain/room"
 )
+
+type Message struct {
+	Type    string          `json:"type"`
+	RoomID  room.RoomID     `json:"roomid"`
+	Payload json.RawMessage `json:"payload,omitempty"`
+}
 
 // Simulación mínima para test
 func startTestServer() (*wsadapter.RoomManager, string) {
@@ -38,41 +47,55 @@ func startTestServer() (*wsadapter.RoomManager, string) {
 }
 
 func TestWebSocketEcho(t *testing.T) {
-
 	rm, serverURL := startTestServer()
 
 	u := strings.Replace(serverURL, "http", "ws", 1)
-	uParsed, _ := url.Parse(u)
-	uParsed.Path = "/ws/room-test"
+	roomName := "room-multi"
 
-	q := uParsed.Query()
-	q.Set("game_name", "culo")
-	uParsed.RawQuery = q.Encode()
-
-	ws, _, err := websocket.DefaultDialer.Dial(uParsed.String(), nil)
-	if err != nil {
-		t.Fatalf("No se pudo conectar al WebSocket: %v", err)
+	// Conectar múltiples clientes
+	var clients []*websocket.Conn
+	usernames := []string{"jorge", "pepito", "ana", "luis"}
+	for _, username := range usernames {
+		url := fmt.Sprintf("%s/ws/%s?game_name=culo&username=%s", u, roomName, url.QueryEscape(username))
+		ws, _, err := websocket.DefaultDialer.Dial(url, nil)
+		if err != nil {
+			t.Fatalf("Error al conectar usuario %s: %v", username, err)
+		}
+		defer ws.Close()
+		clients = append(clients, ws)
 	}
-	defer ws.Close()
 
 	// Espera que el cliente sea registrado y goroutines activas
 	time.Sleep(100 * time.Millisecond)
 
-	// mensaje := []byte(`{"type":"test","payload":"ping"}`)
-	// if err := ws.WriteMessage(websocket.TextMessage, mensaje); err != nil {
-	// 	t.Fatalf("Error al enviar mensaje: %v", err)
-	// }
+	// Comienzo del juego
+	enviarMensajeComienzo(t, clients[0], roomName)
 
-	// // Si tu WritePump envía algo en respuesta, aquí podrías leerlo:
-	// _, resp, err := ws.ReadMessage()
-	// if err != nil {
-	// 	t.Fatalf("Error al recibir mensaje: %v", err)
-	// }
-	// t.Logf("Respuesta: %v", resp)
+	// Verificar que todos los clientes reciban un mensaje (broadcast)
+	for i, c := range clients {
+		_, data, err := c.ReadMessage()
+		if err != nil {
+			t.Errorf("Cliente %d: Error al leer mensaje: %v", i+1, err)
+		} else {
+			t.Logf("Cliente %d recibió: %s", i+1, string(data))
+		}
+	}
 
 	// Solo validamos que el WebSocket esté vivo un instante
 	t.Logf("WebSocket conectado correctamente a la room %s", "room-test")
 
 	// Limpieza
 	close(rm.Stop)
+}
+
+func enviarMensajeComienzo(t *testing.T, ws *websocket.Conn, roomName string) {
+	msg := Message{
+		Type:    "start_game",
+		RoomID:  room.RoomID(roomName),
+		Payload: json.RawMessage([]byte(`{}`)),
+	}
+	msgJSON, _ := json.Marshal(msg)
+	if err := ws.WriteMessage(websocket.TextMessage, msgJSON); err != nil {
+		t.Fatalf("Error al enviar start_game desde cliente 1: %v", err)
+	}
 }
