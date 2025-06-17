@@ -8,6 +8,7 @@ import (
 	playerapp "github.com/jorgerr9011/cartas-game-backend/internal/app/player"
 	roomapp "github.com/jorgerr9011/cartas-game-backend/internal/app/room"
 
+	"github.com/jorgerr9011/cartas-game-backend/internal/domain/card"
 	"github.com/jorgerr9011/cartas-game-backend/internal/domain/game"
 	"github.com/jorgerr9011/cartas-game-backend/internal/domain/player"
 	"github.com/jorgerr9011/cartas-game-backend/internal/domain/room"
@@ -30,6 +31,11 @@ type Message struct {
 	Type    string          `json:"type"`
 	RoomID  room.RoomID     `json:"roomid"`
 	Payload json.RawMessage `json:"payload,omitempty"`
+}
+
+type PlayCardPayload struct {
+	PlayerID string    `json:"player_id"`
+	Card     card.Card `json:"card"`
 }
 
 func NewRoomManager(roomUC roomapp.UseCase, playerUC playerapp.UseCase) *RoomManager {
@@ -67,7 +73,7 @@ func (r *RoomManager) Run() {
 
 			jsonMsg, err := json.Marshal(message)
 			if err != nil {
-				log.Printf("Error deserializando mensaje: %v", err)
+				log.Printf("\nError deserializando mensaje: %v", err)
 			}
 
 			clients := r.Rooms[message.RoomID]
@@ -98,24 +104,24 @@ func (r *RoomManager) initializeRoom(client *Client) {
 	room = r.handleCreateRoomGame(client)
 
 	if room == nil || player == nil {
-		log.Printf("ERROR: room o player es nil antes de JoinRoom")
+		log.Printf("\nERROR: room o player es nil antes de JoinRoom")
 		return
 	}
 
 	if err = r.roomUseCase.JoinRoom(room.ID, player.ID); err != nil {
-		log.Printf("Error uniendo jugador %v a la sala %v : %v", room.Name, player.Name, err)
+		log.Printf("\nError uniendo jugador %v a la sala %v : %v", room.Name, player.Name, err)
 	}
 
-	log.Printf("Sala al final del registro: %#v", room)
+	log.Printf("\nSala al final del registro: %#v", room)
 }
 
 func (r *RoomManager) handleCreatePlayer(client *Client) *player.Player {
 	player, err := r.playerUseCase.CreatePlayer(client.Username)
 	if err != nil {
-		log.Printf("Error creando cliente: %v", err)
+		log.Printf("\nError creando cliente: %v", err)
 		return nil
 	}
-	log.Printf("Jugador creado: %#v", player)
+	log.Printf("\nJugador creado: %#v", player)
 	return player
 }
 
@@ -126,16 +132,16 @@ func (r *RoomManager) handleCreateRoomGame(client *Client) *room.Room {
 
 		room, err := r.roomUseCase.CreateRoom(client.RoomID, string(client.RoomID), newGame)
 		if err != nil {
-			log.Printf("Error creando sala: %v", err)
+			log.Printf("\nError creando sala: %v", err)
 			return nil
 		}
-		log.Printf("Sala creada: %#v", room)
-		log.Printf("Juego añadido: %#v", room.Game)
+		log.Printf("\nSala creada: %#v", room)
+		log.Printf("\nJuego añadido: %#v", room.Game)
 
 		r.DomainRooms[room.ID] = room
 	}
 	room := r.DomainRooms[client.RoomID]
-	log.Printf("Sala ya existente: %#v", room)
+	log.Printf("\nSala ya existente: %#v", room)
 	return room
 }
 

@@ -16,13 +16,13 @@ func ReadPump(rm *RoomManager, client *Client) {
 	for {
 		_, message, err := client.Conn.ReadMessage()
 		if err != nil {
-			log.Printf("Read error: %v", err)
+			log.Printf("Read error: %v \n", err)
 			break
 		}
 
 		var jsonMsg Message
 		if err := json.Unmarshal(message, &jsonMsg); err != nil {
-			log.Printf("Error deserializando mensaje %s: %v", client.ID, err)
+			log.Printf("Error deserializando mensaje %s: %v \n", client.ID, err)
 			return
 		}
 
@@ -47,16 +47,47 @@ func handleMessage(rm *RoomManager, client *Client, msg Message) {
 		room := rm.DomainRooms[msg.RoomID]
 		room.Game.Start(room.Players)
 		state := room.Game.GetState()
-		log.Printf("Estado al empezar el juego: %#v", state)
+		log.Printf("Estado al empezar el juego: %#v \n", state)
+
+		playerFinded := room.Game.GetCurrentTurnPlayer()
+		log.Printf("\nJUGADOR QUE JUGARÁ TURNO ACTUAL: %v \n", playerFinded)
 
 		hand, err := room.Game.GetPlayerHand(player.PlayerID(client.Username + "-id"))
 		if err != nil {
-			log.Printf("Error obteniendo mano del jugador: %v", err)
+			log.Printf("\nError obteniendo mano del jugador: %v \n", err)
 		}
-		log.Printf("Mano del jugador %v: %#v", client.Username, hand)
+		log.Printf("\nMano del jugador %v: %#v \n", client.Username, hand)
 
-	case "player_move":
-		//
+	case "play_card":
+		var payload PlayCardPayload
+		err := json.Unmarshal(msg.Payload, &payload)
+		if err != nil {
+			log.Fatalf("Error al deserializar payload: %v", err)
+		}
+
+		log.Printf("\nEl jugador %v jugará la carta %#v", payload.PlayerID, payload.Card)
+
+		room := rm.DomainRooms[msg.RoomID]
+
+		turnPlayer := room.Game.GetCurrentTurnPlayer()
+		if turnPlayer != player.PlayerID(payload.PlayerID) {
+			log.Printf("El jugador que está intentando jugar no es al que le toca jugar este turno!")
+		}
+
+		// CARTA DE PRUEBA
+		playerHand, err := room.Game.GetPlayerHand(turnPlayer)
+		if err != nil {
+			log.Printf("Error obteniendo la mano del jugador")
+		}
+		log.Printf("Carta de prueba que se jugará %#v", playerHand.Hand[1])
+
+		// state, err := room.Game.Play(turnPlayer, payload.Card)
+		state, err := room.Game.Play(turnPlayer, playerHand.Hand[1])
+
+		if err != nil {
+			log.Printf("Error haciendo la jugada por parte del jugador %v.", err)
+		}
+		log.Printf("\nEstado después de jugar una carta: %v", state)
 
 	case "chat":
 		//
