@@ -8,4 +8,13 @@ services:
       - "8080:8080"
     volumes:
       - .:/app
+    environment:
+      REDIS_ADDR: ${REDIS_ADDR}
     working_dir: /app
+
+  redis:
+    image: redis:7
+    container_name: redis_server
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
