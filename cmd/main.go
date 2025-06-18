@@ -12,7 +12,6 @@ import (
 	playerapp "github.com/jorgerr9011/cartas-game-backend/internal/app/player"
 	roomapp "github.com/jorgerr9011/cartas-game-backend/internal/app/room"
 
-	handlerHTTP "github.com/jorgerr9011/cartas-game-backend/internal/ports/http"
 	"github.com/jorgerr9011/cartas-game-backend/internal/ports/ws"
 	"github.com/jorgerr9011/cartas-game-backend/pkg/config"
 )
@@ -60,15 +59,15 @@ func main() {
 	roomUseCase := roomapp.NewUseCase(redisRoomRepo)
 	playerUseCase := playerapp.NewUseCase(redisPlayerRepo)
 
-	roomHandler := handlerHTTP.NewRoomHandler(roomUseCase)
-	playerHandler := handlerHTTP.NewPlayerHandler(playerUseCase)
+	// roomHandler := handlerHTTP.NewRoomHandler(roomUseCase)
+	// playerHandler := handlerHTTP.NewPlayerHandler(playerUseCase)
 
 	roommanager := websocket.NewRoomManager(roomUseCase, playerUseCase)
 	go roommanager.Run()
 
 	api := r.Group("/api")
-	roomHandler.Register(api)
-	playerHandler.Register(api)
+	// roomHandler.Register(api)
+	// playerHandler.Register(api)
 	api.GET("/ws/:roomID", ws.ServeWs(roommanager))
 
 	log.Println("🚀  Server listening on :" + port)
