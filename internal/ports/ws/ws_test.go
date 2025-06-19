@@ -3,6 +3,7 @@ package ws
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -11,12 +12,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/jorgerr9011/cartas-game-backend/internal/adapters/memory"
+	"github.com/jorgerr9011/cartas-game-backend/internal/adapters/db"
+	"github.com/jorgerr9011/cartas-game-backend/internal/adapters/redis"
 	wsadapter "github.com/jorgerr9011/cartas-game-backend/internal/adapters/websocket"
 	playerapp "github.com/jorgerr9011/cartas-game-backend/internal/app/player"
 	roomapp "github.com/jorgerr9011/cartas-game-backend/internal/app/room"
 	"github.com/jorgerr9011/cartas-game-backend/internal/domain/card"
 	"github.com/jorgerr9011/cartas-game-backend/internal/domain/room"
+	"github.com/jorgerr9011/cartas-game-backend/pkg/config"
 )
 
 type Message struct {
@@ -27,13 +30,27 @@ type Message struct {
 
 // Simulación mínima para test
 func startTestServer() (*wsadapter.RoomManager, string) {
+
+	// Cargar las variables del .env
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatal("Error loading configuration: ", err)
+	}
+
+	redisDb := db.NewRedisClient(*cfg)
+
 	gin.SetMode(gin.TestMode)
 
-	memRepo := memory.NewRoomRepo()
-	playerRepo := memory.NewPlayerRepo()
+	// memRepo := memory.NewRoomRepo()
+	// playerRepo := memory.NewPlayerRepo()
+	// roomUseCase := roomapp.NewUseCase(memRepo)
+	// playerUseCase := playerapp.NewUseCase(playerRepo)
 
-	roomUseCase := roomapp.NewUseCase(memRepo)
-	playerUseCase := playerapp.NewUseCase(playerRepo)
+	// Guardar en Redis
+	redisRoomRepo := redis.NewRedisRoomRepo(redisDb)
+	redisPlayerRepo := redis.NewRedisPlayerRepo(redisDb)
+	roomUseCase := roomapp.NewUseCase(redisRoomRepo)
+	playerUseCase := playerapp.NewUseCase(redisPlayerRepo)
 
 	rm := wsadapter.NewRoomManager(roomUseCase, playerUseCase)
 	go rm.Run() // arranca el loop del room manager
