@@ -9,10 +9,13 @@ import (
 type GameID string
 
 type Game interface {
+	GetName() string
 	Start(playerIDs []player.PlayerID) error
 	Play(playerID player.PlayerID, card card.Card) (GameState, error)
 	GetPlayerHand(playerID player.PlayerID) (*PlayerState, error)
 	GetState() GameState
 	GetCurrentTurnPlayer() player.PlayerID
 	IsFinished() bool
+	MarshalState() ([]byte, error)
+	UnmarshalState(data []byte) error
 }

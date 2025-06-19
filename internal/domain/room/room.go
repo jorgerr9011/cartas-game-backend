@@ -1,6 +1,7 @@
 package room
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -17,7 +18,18 @@ type Room struct {
 	CreatedAt time.Time
 	Started   bool
 	TurnIndex int
-	Game      game.Game
+	Game      game.Game `json:"-"` // no se serializa
+}
+
+type RoomDTO struct {
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	Players   []player.PlayerID `json:"players"`
+	CreatedAt time.Time         `json:"created_at"`
+	Started   bool              `json:"started"`
+	TurnIndex int               `json:"turn_index"`
+	GameName  string            `json:"game_name"`
+	GameState json.RawMessage   `json:"game_state"` // estado serializado del juego
 }
 
 func NewRoom(id RoomID, name string, game game.Game) *Room {
@@ -73,4 +85,24 @@ func (r *Room) CurrentPlayer() player.PlayerID {
 		return ""
 	}
 	return r.Players[r.TurnIndex]
+}
+
+func (r *Room) MarshalForRedis() ([]byte, error) {
+	gameState, err := r.Game.MarshalState() // tu método para serializar el estado de game
+	if err != nil {
+		return nil, err
+	}
+
+	dto := RoomDTO{
+		ID:        string(r.ID),
+		Name:      r.Name,
+		Players:   r.Players,
+		CreatedAt: r.CreatedAt,
+		Started:   r.Started,
+		TurnIndex: r.TurnIndex,
+		GameName:  r.Game.GetName(), // o como identifiques el juego
+		GameState: gameState,
+	}
+
+	return json.Marshal(dto)
 }

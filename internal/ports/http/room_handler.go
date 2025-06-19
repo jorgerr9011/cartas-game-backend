@@ -70,7 +70,7 @@ func (h *RoomHandler) joinRoom(c *gin.Context) {
 
 func (h *RoomHandler) startGame(c *gin.Context) {
 	id := room.RoomID(c.Param("id"))
-	err := h.roomusecase.StartGame(id)
+	_, err := h.roomusecase.StartGame(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

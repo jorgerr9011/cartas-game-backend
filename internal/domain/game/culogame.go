@@ -1,6 +1,7 @@
 package game
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand/v2"
 	"slices"
@@ -81,10 +82,15 @@ func (g *CuloCardGame) Start(playerIDs []player.PlayerID) error {
 func (g *CuloCardGame) Play(playerID player.PlayerID, card card.Card) (GameState, error) {
 	playerIdFinded := g.GetCurrentTurnPlayer()
 	if playerIdFinded != playerID {
-		return GameState{}, fmt.Errorf("no es turno del jugador con ID: %s", playerID)
+		return GameState{}, fmt.Errorf("no es turno del jugador con ID: %s, jugador que le toca: %v", playerID, playerIdFinded)
 	}
 
-	g.jugarCarta(playerID, card)
+	/* Esto simplemente para hacer pruebas */
+	cardFinded := g.PlayerHands[playerID].Hand[1]
+
+	// g.jugarCarta(playerID, card)
+	g.jugarCarta(playerID, cardFinded)
+
 	g.avanzarTurno()
 
 	return g.GetState(), nil
@@ -158,4 +164,50 @@ func (g *CuloCardGame) findCardIndex(cards []card.Card, target card.Card) int {
 		}
 	}
 	return -1
+}
+
+func (g *CuloCardGame) MarshalState() ([]byte, error) {
+	currentPlayer := g.GetCurrentTurnPlayer()
+
+	state := GameState{
+		Turn:            g.TurnIndex,
+		CurrentPlayerID: currentPlayer,
+		Players:         g.PlayerHands,
+		Started:         g.Started,
+		Finished:        g.Finished,
+		DiscardPile:     g.DiscardPile,
+		Deck:            g.Deck,
+	}
+
+	return json.Marshal(state)
+}
+
+func (g *CuloCardGame) UnmarshalState(data []byte) error {
+	var state GameState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return err
+	}
+
+	var playerIDs []player.PlayerID
+	for id := range state.Players {
+		playerIDs = append(playerIDs, id)
+	}
+
+	g.Players = playerIDs
+	g.TurnIndex = state.Turn
+	g.PlayerHands = state.Players
+	g.Started = state.Started
+	g.Finished = state.Finished
+	g.DiscardPile = state.DiscardPile
+	g.Deck = state.Deck
+
+	g.TurnPlayer = -1
+	for i, id := range g.Players {
+		if id == state.CurrentPlayerID {
+			g.TurnPlayer = i
+			break
+		}
+	}
+
+	return nil
 }

@@ -1,6 +1,7 @@
 package roomapp
 
 import (
+	"github.com/jorgerr9011/cartas-game-backend/internal/domain/card"
 	"github.com/jorgerr9011/cartas-game-backend/internal/domain/game"
 	"github.com/jorgerr9011/cartas-game-backend/internal/domain/player"
 	"github.com/jorgerr9011/cartas-game-backend/internal/domain/room"
@@ -10,9 +11,10 @@ import (
 type UseCase interface {
 	CreateRoom(id room.RoomID, name string, game game.Game) (*room.Room, error)
 	JoinRoom(roomID room.RoomID, playerID player.PlayerID) error
-	StartGame(roomID room.RoomID) error
+	StartGame(roomID room.RoomID) (game.GameState, error)
 	NextTurn(roomID room.RoomID) error
 	CurrentPlayer(roomID room.RoomID) (player.PlayerID, error)
+	Play(roomID room.RoomID, playerId player.PlayerID, card card.Card) (game.GameState, error)
 }
 
 type roomUseCase struct {
@@ -44,16 +46,18 @@ func (uc *roomUseCase) JoinRoom(roomID room.RoomID, playerID player.PlayerID) er
 	return uc.repo.Save(r)
 }
 
-func (uc *roomUseCase) StartGame(roomID room.RoomID) error {
+func (uc *roomUseCase) StartGame(roomID room.RoomID) (game.GameState, error) {
 	r, err := uc.repo.FindByID(roomID)
 	if err != nil {
-		return err
+		return game.GameState{}, err
 	}
-	err = r.StartGame()
+	err = r.Game.Start(r.Players)
 	if err != nil {
-		return err
+		return game.GameState{}, err
 	}
-	return uc.repo.Save(r)
+	uc.repo.Save(r)
+
+	return r.Game.GetState(), nil
 }
 
 func (uc *roomUseCase) NextTurn(roomID room.RoomID) error {
@@ -71,4 +75,15 @@ func (uc *roomUseCase) CurrentPlayer(roomID room.RoomID) (player.PlayerID, error
 		return "", err
 	}
 	return r.CurrentPlayer(), nil
+}
+
+func (uc *roomUseCase) Play(roomID room.RoomID, playerId player.PlayerID, card card.Card) (game.GameState, error) {
+	r, err := uc.repo.FindByID(roomID)
+	if err != nil {
+		return game.GameState{}, err
+	}
+
+	state, err := r.Game.Play(playerId, card)
+	uc.repo.Save(r)
+	return state, err
 }
