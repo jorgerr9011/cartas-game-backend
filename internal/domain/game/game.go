@@ -8,6 +8,22 @@ import (
 
 type GameID string
 
+type PlayerState struct {
+	ID    player.PlayerID
+	Hand  []card.Card // Cartas en su mano
+	Score int
+}
+
+type GameState struct {
+	Turn            int
+	CurrentPlayerID player.PlayerID
+	Players         map[player.PlayerID]*PlayerState // Estado de cada jugador
+	Started         bool
+	Finished        bool
+	DiscardPile     []card.Card
+	Deck            []card.Card
+}
+
 type Game interface {
 	GetName() string
 	Start(playerIDs []player.PlayerID) error

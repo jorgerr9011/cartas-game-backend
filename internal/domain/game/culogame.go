@@ -23,22 +23,6 @@ type CuloCardGame struct {
 	DiscardPile []card.Card
 }
 
-type PlayerState struct {
-	ID    player.PlayerID
-	Hand  []card.Card // Cartas en su mano
-	Score int
-}
-
-type GameState struct {
-	Turn            int
-	CurrentPlayerID player.PlayerID
-	Players         map[player.PlayerID]*PlayerState // Estado de cada jugador
-	Started         bool
-	Finished        bool
-	DiscardPile     []card.Card
-	Deck            []card.Card
-}
-
 func NewCuloCardGame() *CuloCardGame {
 	return &CuloCardGame{
 		// ID:          id,
