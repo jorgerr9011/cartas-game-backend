@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/jorgerr9011/cartas-game-backend/internal/domain/game"
 	"github.com/jorgerr9011/cartas-game-backend/internal/domain/player"
+	"github.com/jorgerr9011/cartas-game-backend/internal/domain/room"
 )
 
 func ReadPump(rm *RoomManager, client *Client) {
@@ -31,12 +33,6 @@ func ReadPump(rm *RoomManager, client *Client) {
 		}
 
 		handleMessage(rm, client, jsonMsg)
-
-		// rm.Broadcast <- Message{
-		// 	Type:    jsonMsg.Type,
-		// 	RoomID:  jsonMsg.RoomID,
-		// 	Payload: jsonMsg.Payload,
-		// }
 	}
 }
 
@@ -53,6 +49,7 @@ func handleMessage(rm *RoomManager, client *Client, msg Message) {
 			log.Printf("Error al inicial el juego %v.", err)
 		}
 
+		broadcastEstadoPartida(rm, "game_started", state, msg.RoomID)
 		log.Printf("Juego empezado! Estado del juego: %#v", state)
 
 	case "play_card":
@@ -68,29 +65,37 @@ func handleMessage(rm *RoomManager, client *Client, msg Message) {
 		if err != nil {
 			log.Printf("Error haciendo la jugada por parte del jugador %v.", err)
 		}
+
+		log.Printf("\n JUGADORES: %#v", rm.Rooms[msg.RoomID])
+
 		log.Printf("\nEstado después de jugar una carta: %v", state)
+
+		broadcastEstadoPartida(rm, "card_played", state, msg.RoomID)
 
 		// room := rm.DomainRooms[msg.RoomID]
 
-		// turnPlayer := room.Game.GetCurrentTurnPlayer()
-		// if turnPlayer != player.PlayerID(payload.PlayerID) {
-		// 	log.Printf("El jugador que está intentando jugar no es al que le toca jugar este turno!")
-		// }
-
-		// // CARTA DE PRUEBA
-		// playerHand, err := room.Game.GetPlayerHand(turnPlayer)
-		// if err != nil {
-		// 	log.Printf("Error obteniendo la mano del jugador")
-		// }
-		// log.Printf("Carta de prueba que se jugará %#v", playerHand.Hand[1])
-
-		// // state, err := room.Game.Play(turnPlayer, payload.Card)
-		// state, err := room.Game.Play(turnPlayer, playerHand.Hand[1])
+	case "end_game":
+		//
 
 	case "chat":
 		//
 
 	default:
 		log.Printf("Tipo de mensaje desconocido: %s", msg.Type)
+	}
+}
+
+func broadcastEstadoPartida(rm *RoomManager, tipo string, state game.GameState, roomID room.RoomID) {
+	stateBytes, err := json.Marshal(state)
+	if err != nil {
+		log.Printf("Error comenzando el juego: %v", err)
+	}
+
+	log.Printf("Broadcast de tipo %s en room %s: %s", tipo, roomID, string(stateBytes))
+
+	rm.Broadcast <- Message{
+		Type:    tipo,
+		RoomID:  roomID,
+		Payload: json.RawMessage(stateBytes),
 	}
 }
