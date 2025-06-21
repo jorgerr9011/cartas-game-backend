@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,6 +27,12 @@ type Message struct {
 	Type    string          `json:"type"`
 	RoomID  room.RoomID     `json:"roomid"`
 	Payload json.RawMessage `json:"payload,omitempty"`
+}
+
+type ClienteSimulado struct {
+	Nombre   string
+	Conn     *websocket.Conn
+	Recibido chan string
 }
 
 // Simulación mínima para test
@@ -60,18 +67,56 @@ func startTestServer() (*wsadapter.RoomManager, string) {
 
 	server := httptest.NewServer(router)
 
-	// Devuelve el RoomManager y la URL del servidor para usarla en el test
 	return rm, server.URL
 }
 
 func TestWebSocketEcho(t *testing.T) {
-	rm, serverURL := startTestServer()
-
-	u := strings.Replace(serverURL, "http", "ws", 1)
 	roomName := "room-multi"
+	rm, clients, wg := conectarClientes(t, roomName)
+
+	// Cierre de conexiones
+	defer func() {
+		for _, c := range clients {
+			_ = c.Conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "bye"))
+			_ = c.Conn.Close()
+		}
+	}()
+
+	// Espera que el cliente sea registrado y goroutines activas
+	time.Sleep(100 * time.Millisecond)
+
+	enviarMensajeComienzo(t, clients[0].Conn, roomName)
+
+	time.Sleep(1000 * time.Millisecond)
+
+	enviarMensajeJugarCarta(t, clients[0].Conn, roomName)
+
+	time.Sleep(1000 * time.Millisecond)
+
+	for _, c := range clients {
+		leerTodosMensajes(t, c, 300*time.Millisecond)
+	}
+
+	// Detener goroutines
+	done := make(chan struct{})
+	close(done)
+
+	// Espera a que goroutines terminen
+	wg.Wait()
+
+	// Limpieza
+	close(rm.Stop)
+}
+
+func conectarClientes(t *testing.T, roomName string) (*wsadapter.RoomManager, []ClienteSimulado, *sync.WaitGroup) {
+	rm, serverURL := startTestServer()
+	u := strings.Replace(serverURL, "http", "ws", 1)
+
+	var wg sync.WaitGroup
+	done := make(chan struct{})
+	var clients []ClienteSimulado
 
 	// Conectar múltiples clientes
-	var clients []*websocket.Conn
 	usernames := []string{"jorge", "pepito", "ana", "luis"}
 	for _, username := range usernames {
 		url := fmt.Sprintf("%s/ws/%s?game_name=culo&username=%s", u, roomName, url.QueryEscape(username))
@@ -79,34 +124,18 @@ func TestWebSocketEcho(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error al conectar usuario %s: %v \n", username, err)
 		}
-		defer ws.Close()
-		clients = append(clients, ws)
+
+		recibido := make(chan string, 20)
+		iniciarReceptor(ws, recibido, done, &wg)
+
+		clients = append(clients, ClienteSimulado{
+			Nombre:   username,
+			Conn:     ws,
+			Recibido: recibido,
+		})
 	}
 
-	// Espera que el cliente sea registrado y goroutines activas
-	time.Sleep(100 * time.Millisecond)
-
-	// Comienzo del juego
-	enviarMensajeComienzo(t, clients[0], roomName)
-
-	// Jugar una carta
-	enviarMensajeJugarCarta(t, clients[0], roomName)
-
-	// Verificar que todos los clientes reciban un mensaje (broadcast)
-	for i, c := range clients {
-		_, data, err := c.ReadMessage()
-		if err != nil {
-			t.Errorf("Cliente %d: Error al leer mensaje: %v \n", i+1, err)
-		} else {
-			t.Logf("Cliente %d recibió: %s \n", i+1, string(data))
-		}
-	}
-
-	// Solo validamos que el WebSocket esté vivo un instante
-	t.Logf("WebSocket conectado correctamente a la room %s \n", "room-test")
-
-	// Limpieza
-	close(rm.Stop)
+	return rm, clients, &wg
 }
 
 func enviarMensajeComienzo(t *testing.T, ws *websocket.Conn, roomName string) {
@@ -145,5 +174,36 @@ func enviarMensajeJugarCarta(t *testing.T, ws *websocket.Conn, roomName string) 
 	msgJSON, _ := json.Marshal(msg)
 	if err := ws.WriteMessage(websocket.TextMessage, msgJSON); err != nil {
 		t.Fatalf("Error al enviar play_game desde el jugador %v: %v \n", player, err)
+	}
+}
+
+func iniciarReceptor(ws *websocket.Conn, recibido chan string, done <-chan struct{}, wg *sync.WaitGroup) {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				_, msg, err := ws.ReadMessage()
+				if err != nil {
+					continue
+				}
+				recibido <- string(msg)
+			}
+		}
+	}()
+}
+
+func leerTodosMensajes(t *testing.T, c ClienteSimulado, timeout time.Duration) {
+	t.Logf("Mensajes recibidos por %s:", c.Nombre)
+	for {
+		select {
+		case msg := <-c.Recibido:
+			t.Logf("  %s", msg)
+		case <-time.After(timeout):
+			return
+		}
 	}
 }

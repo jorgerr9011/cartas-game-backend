@@ -7,4 +7,4 @@ default:
 
 # Ejecuta los tests
 test:
-    go test ./internal/ports/ws -v
+    docker exec -it cardgame-backend go test ./internal/ports/ws -v
