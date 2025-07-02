@@ -31,6 +31,9 @@ Este proyecto surgió de la idea de aprender tecnologías nuevas y mejorar las y
 - Escalabilidad
 - Mantenibilidad
 - Arquitectura hexagonal
+- Websockets
+- Tiempo real
+- Multijugador
 
 ---
 
